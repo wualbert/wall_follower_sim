@@ -39,38 +39,6 @@ class WallFollower:
         return m,b
 
     def partition_points(self,laser_scan_data):
-        '''
-        #drop unnecessary scan data
-        useful_range = np.asarray(laser_scan_data.ranges)
-        range_data_count = useful_range.shape[0]
-        split_point_low = int(np.floor(range_data_count/2))
-        split_point_high = int(np.ceil(range_data_count/2))
-        cartesian_points = np.zeros((split_point_low,2))
-        angles = np.arange()
-        assert(abs(self.SIDE)==1)
-
-        #transform to Cartesian in laser frame
-        if self.SIDE == 1:
-        #keep left side data
-            useful_range = useful_range[split_point_high:]
-            for i, r in enumerate(useful_range):
-                #calculate x
-                cartesian_points[i,0]=r*np.cos(laser_scan_data.angle_min+\
-                        (i+split_point_high)*laser_scan_data.angle_increment)
-                #calculate y
-                cartesian_points[i,1]=r*np.sin(laser_scan_data.angle_min+\
-                        (i+split_point_high)*laser_scan_data.angle_increment)
-        elif self.SIDE == -1:
-        #keep right side data
-            useful_range = useful_range[:split_point_low]
-            for i, r in enumerate(useful_range):
-                #calculate x
-                cartesian_points[i,0]=r*np.cos(laser_scan_data.angle_min+\
-                        i*laser_scan_data.angle_increment)
-                #calculate y
-                cartesian_points[i,1]=r*np.sin(laser_scan_data.angle_min+\
-                        i*laser_scan_data.angle_increment)
-        '''
         range_orientation_points = np.asarray(laser_scan_data.ranges)
         orientation_points = np.arange(laser_scan_data.angle_min, \
                                         laser_scan_data.angle_max+laser_scan_data.angle_increment/2,\
