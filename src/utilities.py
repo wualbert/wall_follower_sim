@@ -2,7 +2,8 @@
 
 import numpy as np
 
-def hough_line_detection(points, line_num = np.inf, r_res = 0.05, theta_res = 0.05):
+def hough_line_detection(points, line_num = np.inf, r_res = 0.1, theta_res = 0.1, \
+        return_polar = False):
     #find max r
     r_max = 0
     for i,point in enumerate(points):
@@ -41,6 +42,7 @@ def hough_line_detection(points, line_num = np.inf, r_res = 0.05, theta_res = 0.
         if similar_line:
             continue
         #convert r theta to m b
+        line_theta = max(line_theta, 1e-3) #prevent divide by zero
         m = -1/np.tan(line_theta)
         b = line_r/np.sin(line_theta)
         #record line
@@ -48,4 +50,15 @@ def hough_line_detection(points, line_num = np.inf, r_res = 0.05, theta_res = 0.
         if i>=line_num:
             break
     lines_hl.sort(key = lambda x: abs(x[0]))
-    return np.asarray(lines_hl)[:,2:]
+    if len(lines_hl)==0:
+        #no line detected
+        return None
+    if return_polar:
+        return np.asarray(lines_hl)
+    else:
+        return np.asarray(lines_hl)[:,2:]
+
+def line_to_point_distance(line):
+    assert(len(line)==2)
+    magnitude = line[1]/np.sqrt(1+line[0]**2)
+    return magnitude
