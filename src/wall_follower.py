@@ -5,6 +5,8 @@ import numpy as np
 import rospy
 from rospy.numpy_msg import numpy_msg
 from sensor_msgs.msg import LaserScan
+from visualization_msgs.msg import Marker
+from geometry_msgs.msg import Point
 from ackermann_msgs.msg import AckermannDriveStamped
 from utilities import *
 
@@ -17,8 +19,11 @@ class WallFollower:
     SIDE = rospy.get_param("wall_follower/side")
     VELOCITY = rospy.get_param("wall_follower/velocity")
     DESIRED_DISTANCE = rospy.get_param("wall_follower/desired_distance")
+    MARKER_TOPIC = rospy.get_param("wall_follower/marker_topic")
+    STEERING_ANGLE = rospy.get_param("wall_follower/max_wheel_angle")
     def __init__(self):
         #init publisher
+        self.marker_pub = rospy.Publisher(self.MARKER_TOPIC,Marker,queue_size = 10)
         self.control_pub = rospy.Publisher(self.DRIVE_TOPIC, AckermannDriveStamped, queue_size=10)
         #init subscriber
         rospy.Subscriber(self.SCAN_TOPIC, LaserScan, self.scan_callback)
@@ -26,20 +31,21 @@ class WallFollower:
 
     def scan_callback(self,laser_scan_data):
         #process data to obtain line to follow
-        line = self.scan_to_line(laser_scan_data)
-        if line is None:
+        lines= self.scan_to_lines(laser_scan_data)
+        if lines is None:
             #no line detected
-            self.publish_control(line, zero=True)
+            self.publish_control(lines, zero=True)
             return
         #print(m,b)
-        self.publish_control(line)
+        self.publish_control(lines)
+        #self.publish_lines(lines)
         return
     
-    def scan_to_line(self, laser_scan_data):
+    def scan_to_lines(self, laser_scan_data):
         ro_points = self.partition_points(laser_scan_data)
         cartesian_points = self.range_to_cartesian(ro_points)
-        line = self.cartesian_to_line(cartesian_points)
-        return line
+        lines = self.cartesian_to_lines(cartesian_points)
+        return lines
 
     def partition_points(self,laser_scan_data):
         range_orientation_points = np.asarray(laser_scan_data.ranges)
@@ -75,15 +81,15 @@ class WallFollower:
                         new_rop.append(rop)
         return np.asarray(new_rop)
 
-    def cartesian_to_line(self,cartesian_points):
+    def cartesian_to_lines(self,cartesian_points):
         lines = hough_line_detection(cartesian_points)
         if lines is None:
             #no line detected
             return lines
         #returns closest line
-        return lines[0,:]
+        return lines
    
-    def publish_control(self,wall_line, zero=False):
+    def publish_control(self,wall_lines, zero=False):
         if zero:
             control_action = AckermannDriveStamped()
             #set header
@@ -92,19 +98,48 @@ class WallFollower:
             control_action.drive.speed = self.VELOCITY
             self.control_pub.publish(control_action)
             return True
+        #choose first of all lines
+        wall_line = wall_lines[0,:]
         assert(len(wall_line)==2)    #mx+b form
         control_action = AckermannDriveStamped()
         #set header
         control_action.header.stamp = rospy.rostime.Time().now()
         #calculate control action
+        control_action.drive.steering_angle_velocity = 1
         control_action.drive.speed = self.VELOCITY
         reference_line = self.compute_reference_line(wall_line)
+        self.publish_lines([reference_line], color=[1,0,1])
         #simple P steering
         control_action.drive.steering_angle = self.compute_pd_action(reference_line)
         #publish
         self.control_pub.publish(control_action)
         #print(control_action)
         return True
+    
+    def publish_lines(self, lines, frame='laser', color = [1,1,0]):
+        for line in lines:
+            marker = Marker()
+            marker.header.stamp = rospy.rostime.Time().now()
+            marker.header.frame_id = frame
+            marker.type = Marker.LINE_STRIP
+            marker.scale.x = 0.05
+            marker.scale.y = 0.05
+            marker.scale.z = 0.05
+            marker.color.r = color[0]
+            marker.color.g = color[1]
+            marker.color.b = color[2]
+            marker.color.a = 1.
+            #compute line
+            p1 = Point()
+            p1.x = 0.
+            p1.y = line[1]
+            p2 = Point()
+            p2.x = -line[1]/line[0]
+            p2.y = 0.
+            marker.points.append(p1)
+            marker.points.append(p2)
+
+            self.marker_pub.publish(marker)
 
     def compute_reference_line(self, wall_line):
         #given a wall, compute the reference line to follow
@@ -126,6 +161,7 @@ class WallFollower:
         #print('wl',wall_line)
         #print(dist, dist_err)
         steering_angle += p_gain*dist_err
+        steering_angle = max(-self.STEERING_ANGLE,min(self.STEERING_ANGLE,steering_angle))
         return steering_angle
 
 if __name__ == "__main__":
