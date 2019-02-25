@@ -1,7 +1,8 @@
 scan_topic: "/scan"
 drive_topic: "/drive"
-marker_topic: "/marker"
 side: -1
 velocity: 0.5
 desired_distance: 1.
 max_wheel_angle: 0.34
+L1: 1.92 
+wheel_base: 0.325

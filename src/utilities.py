@@ -2,8 +2,9 @@
 
 import numpy as np
 
-def hough_least_sq_line_detection(points, line_num = np.inf, r_res = 0.5,\
-        theta_res = 0.5, return_polar = False):
+def hough_least_sq_line_detection(points, line_num = 1, r_res = 0.03,\
+        theta_res = 0.03, return_polar = False):
+    '''NOT WORKING'''
     #find max r
     r_max = 0
     for i,point in enumerate(points):
@@ -34,44 +35,49 @@ def hough_least_sq_line_detection(points, line_num = np.inf, r_res = 0.5,\
     flattened_hough_bins = hough_bins.flatten()
     i=0
     lines_points = []
+    max_index = len(flattened_hough_bins)
     while(1):
+        if i >= max_index-1:
+            break
         hough_counts = flattened_hough_bins[indices[-(1+i)]]
-        if hough_counts<=3:
-            continue
+        if hough_counts<=7:
+            break
         hough_bin_x = int(np.floor(indices[-(1+i)]/hough_bins.shape[1]))
         hough_bin_y = int(np.mod(indices[-(1+i)], hough_bins.shape[1]))
         line_r = r_res*(hough_bin_x-int(np.ceil(r_max/r_res)))
         line_theta = theta_res*hough_bin_y
         #filter out similar lines
-        similar_line = False
+        similar_line = None
         i+=1
-        '''
-        for hl in lines_hl: 
-            if abs(hl[0]-line_r)<=1.5*r_res or abs(hl[1]-line_theta)<=1.5*theta_res:
-                similar_line = True
-                break
+        for sim_l_index, hl in enumerate(lines_hl):
+            hl_theta = np.arctan(-1/hl[1])
+            hl_r = hl[0]*np.sin(hl_theta)
+            if (hl_r-line_r)**2+(hl_theta-line_theta)**2<=100000*(r_res**2+theta_res**2):
+                print ('sim')
+        points_on_line = hough_dict[(hough_bin_x,hough_bin_y)]
         if similar_line:
-            continue
-        '''
-        #compute closest points
-        points_on_line = np.asarray([list(m) for m in hough_dict[(hough_bin_x,hough_bin_y)]])
-        x = np.vstack([points_on_line[:,0], np.ones(points_on_line.shape[0])]).T
-        m, b = np.linalg.lstsq(x,points_on_line[:,1])[0]
+            lines_points[similar_line].update(points_on_line)
+            points_on_line_array = np.asarray([list(m) for m in lines_points[similar_line]])
+        else:
+            lines_points.append(points_on_line)
+            points_on_line_array = np.asarray([list(m) for m in lines_points[-1]])
+        x = np.vstack([points_on_line_array[:,0],np.ones(points_on_line_array.shape[0])]).T
+        m, b = np.linalg.lstsq(x,points_on_line_array[:,1])[0]
         #record line
-        lines_hl.append((line_r, line_theta, m, b))
+        if similar_line:
+            lines_hl[similar_line]=(m,b)
+        else:
+            lines_hl.append((m, b))
         if len(lines_hl)>=line_num:
             break
-    lines_hl.sort(key = lambda x: abs(x[0]))
+    print(lines_hl)
     if len(lines_hl)==0:
         #no line detected
         return None
-    if return_polar:
-        return np.asarray(lines_hl)
-    else:
-        return np.asarray(lines_hl)[:,2:]
+    return np.asarray(lines_hl)
 
 
-def hough_line_detection(points, line_num = np.inf, r_res = 0.1, theta_res = 0.1, \
+def hough_line_detection(points, line_num = np.inf, r_res = 0.05, theta_res = 0.05, \
         return_polar = False):
     #find max r
     r_max = 0
@@ -93,9 +99,12 @@ def hough_line_detection(points, line_num = np.inf, r_res = 0.1, theta_res = 0.1
     line_num = min(line_num, len(indices))
     flattened_hough_bins = hough_bins.flatten()
     i=0
+    max_i = len(flattened_hough_bins)
     while(1):
+        if i>=max_i:
+            break
         hough_counts = flattened_hough_bins[indices[-(1+i)]]
-        if hough_counts<=8:
+        if hough_counts<=5:
             break
         hough_bin_x = int(np.floor(indices[-(1+i)]/hough_bins.shape[1]))
         hough_bin_y = int(np.mod(indices[-(1+i)], hough_bins.shape[1]))
