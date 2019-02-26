@@ -18,7 +18,7 @@ class WallFollower:
     SCAN_TOPIC = rospy.get_param("wall_follower/scan_topic")
     DRIVE_TOPIC = rospy.get_param("wall_follower/drive_topic")
     SIDE = rospy.get_param("wall_follower/side")
-    VELOCITY = rospy.get_param("wall_follower/velocity")*1.05
+    VELOCITY = rospy.get_param("wall_follower/velocity")
     DESIRED_DISTANCE = rospy.get_param("wall_follower/desired_distance")
     MARKER_TOPIC = 'marker' 
     STEERING_ANGLE = 0.34
@@ -181,7 +181,8 @@ class WallFollower:
             self.control_mode = 'ackermann'
         else:
             control_action.drive.steering_angle = self.compute_ackermann_action(reference_line)
-        #publish
+            #control_action.drive.steering_angle_velocity = 0.03
+            #publish
         self.control_action = control_action
         #print(control_action)
         return True
